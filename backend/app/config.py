@@ -5,7 +5,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class Settings:
     database_url: str = os.getenv(
-        "DATABASE_URL", "postgresql+psycopg://postgres@localhost:5432/fantasy"
+        "DATABASE_URL", "postgresql+psycopg://postgres@localhost:5432/lolesports_fantasy"
     )
     # MUST be overridden in any real deployment.
     jwt_secret: str = os.getenv("JWT_SECRET", "dev-only-insecure-secret-change-me-in-prod")

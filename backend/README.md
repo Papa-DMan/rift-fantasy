@@ -1,17 +1,21 @@
 # LoL Fantasy API
 
 FastAPI + SQLAlchemy 2.0 backend for friends-only League of Legends fantasy
-leagues (Worlds first). The schema lives in `app/models.py`. Scoring is
-deliberately left out until the rules are settled.
+leagues (Worlds first). Pro-play data (teams, players, rounds, games, stats,
+live feed frames) lives in `db.py`, with the lolesports API client in
+`lolesports.py` / `lolesportsapi.py`. The fantasy schema lives in
+`app/models.py`. Scoring is deliberately left out until the rules are settled.
 
 ## Run it
 
-PostgreSQL is the primary database.
+PostgreSQL is the primary database; `docker compose up -d db` starts the one
+in `docker-compose.yaml`.
 
 ```bash
 pip install -r requirements.txt
-export DATABASE_URL=postgresql+psycopg://user:pw@localhost:5432/fantasy
-python -m app.create_tables --stubs      # --stubs also makes placeholder player/round tables
+export DATABASE_URL=postgresql+psycopg://postgres:$POSTGRES_PASSWORD@localhost:5432/lolesports_fantasy
+python -m app.create_tables --seed       # all tables, plus db.seed(): Worlds rounds, teams,
+                                         # players, and games from the lolesports API
 JWT_SECRET=$(openssl rand -hex 32) uvicorn app.main:app --reload
 # open http://localhost:8000/docs
 
@@ -22,17 +26,21 @@ TEST_DATABASE_URL=postgresql+psycopg://user:pw@localhost:5432/fantasy_test pytes
 
 | Env var | Default | |
 |---|---|---|
-| `DATABASE_URL` | `postgresql+psycopg://postgres@localhost:5432/fantasy` | psycopg 3 driver; SQLite URLs also work for quick local runs |
+| `DATABASE_URL` | `postgresql+psycopg://postgres@localhost:5432/lolesports_fantasy` | psycopg 3 driver; SQLite URLs also work for quick local runs |
 | `JWT_SECRET` | dev placeholder | **set this** in any real deployment |
 | `ACCESS_TOKEN_MINUTES` | `10080` (7 days) | |
 | `DEFAULT_TOURNAMENT_ID` | `worlds-2026` | used when a league doesn't pass one |
 
-## Hooking up your lolesports tables
+## How the fantasy side uses the lolesports tables
 
-`app/lolesports.py` holds stand-in `Player` and `Round` models. Replace them
-with your real ones. The fantasy code only uses `Player.id`, `Player.name`,
-and a position, which goes through `player_position()`, so adapt that one
-function if your roles are spelled differently ("bottom" vs "adc", etc.).
+`app/lolesports.py` is the bridge to `db.py`. The fantasy code only uses
+`Player.id`, `Player.tag`, `Player.position`, `Player.team` and `Round.id`.
+`PlayerRole` values (`top`, `jungle`, `mid`, `adc`, `support`, `coach`) are
+the roster slot keys, so `player_position()` is a straight `.value`.
+
+The API's player objects map the pro tables like this: `name` is the in-game
+tag (`Faker`), `real_name` is `Player.name`, `role` is the position,
+`team_code` is the pro team's name, and `region` is the region.
 
 ## Endpoints
 
@@ -92,8 +100,12 @@ leagues don't leak.
   `JSONB`, and timestamps are `timestamptz`.
 - On SQLite (tests only) ids fall back to `INTEGER` and JSONB to JSON, because
   SQLite only auto-increments `INTEGER PRIMARY KEY`.
-- `Base` lives in `app/db.py` so the fantasy and lolesports models share one
-  metadata.
+- The fantasy `Base` in `app/db.py` reuses `db.Base.metadata`, so foreign keys
+  to `player.id` / `round.id` resolve and `create_all` builds both sides. It
+  keeps its own registry because both sides have a class called `Team`
+  (`team` = pro team, `teams` = fantasy team).
+- `db.py` keys are plain `BIGINT` (BIGSERIAL on Postgres), which SQLite won't
+  auto-increment, so the tests insert pro teams and players with explicit ids.
 
 ## Not done yet
 

@@ -1,16 +1,22 @@
-"""Create the fantasy tables (dev convenience; use Alembic in production).
+"""Create every table: the lolesports ones from ../db.py and the fantasy ones
+from app/models.py (dev convenience; use Alembic in production). Existing
+tables are left alone.
 
-    python -m app.create_tables            # fantasy tables only
-    python -m app.create_tables --stubs    # also create stub player/round tables
+    python -m app.create_tables            # tables only
+    python -m app.create_tables --seed     # also run db.seed(): Worlds rounds,
+                                           # teams, players, and games from the
+                                           # lolesports API (needs network)
 """
 import sys
 
-from app import lolesports, models  # noqa: F401
-from app.db import Base, engine
+from app import models  # noqa: F401  (register the fantasy tables)
+from app.db import Base, SessionLocal, engine
 
 if __name__ == "__main__":
-    tables = None
-    if "--stubs" not in sys.argv:
-        tables = [t for name, t in Base.metadata.tables.items() if name not in ("player", "round")]
-    Base.metadata.create_all(engine, tables=tables)
-    print("created:", ", ".join(sorted(t.name for t in (tables or Base.metadata.sorted_tables))))
+    Base.metadata.create_all(engine)
+    print("tables:", ", ".join(sorted(Base.metadata.tables)))
+    if "--seed" in sys.argv:
+        import db
+        with SessionLocal() as session:
+            db.seed(session)
+        print("seeded Worlds rounds, teams, players and games")

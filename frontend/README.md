@@ -20,12 +20,8 @@ The dev server proxies `/api/*` to `http://localhost:8000`, so the browser
 only ever talks to one origin and the backend needs no CORS setup. Point the
 proxy elsewhere with `API_PROXY_TARGET=http://host:port npm run dev`.
 
-Want players to draft before the real lolesports tables are wired up? Seed
-made-up demo players into a **dev** database:
-
-```bash
-cd ../backend && python ../frontend/dev/seed_demo_players.py
-```
+The draft pool is the real Worlds field. Seed it with
+`python -m app.create_tables --seed` in `../backend`.
 
 ## Build and deploy
 

@@ -6,10 +6,11 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.db import Base, get_db, make_engine
-from app.lolesports import Player
+from app.lolesports import Player, PlayerRole, Team
+from db import Region
 from app.main import app
 
-ROLES = ["top", "jungle", "mid", "adc", "support", "coach"]
+ROLES = list(PlayerRole)  # top, jungle, mid, adc, support, coach
 
 
 @pytest.fixture()
@@ -22,10 +23,16 @@ def session_factory():
     Base.metadata.create_all(engine)
     factory = sessionmaker(bind=engine, expire_on_commit=False)
     with factory() as db:
-        # 5 pro teams x 6 roles = 30 players, ids 1..30
+        # 5 pro teams x 6 roles = 30 players, ids 1..30. Ids are explicit
+        # because db.py's BIGINT keys don't auto-increment on SQLite.
+        db.add_all([Team(id=t + 1, name=f"T{t}") for t in range(5)])
+        db.flush()
+        pid = 0
         for t in range(5):
             for role in ROLES:
-                db.add(Player(name=f"{role}{t}", role=role, team_code=f"T{t}"))
+                pid += 1
+                db.add(Player(id=pid, team=t + 1, tag=f"{role.value}{t}", name=f"Player {pid}",
+                              position=role, region=Region.LCK))
         db.commit()
     yield factory
     if url:

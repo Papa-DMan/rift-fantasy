@@ -1,6 +1,6 @@
 """Fantasy-side models for the LoL Worlds fantasy app (SQLAlchemy 2.0).
 
-Assumes `player` and `round` tables already exist from the lolesports side.
+The `player` and `round` tables come from the lolesports models in ../db.py.
 Targets PostgreSQL (BIGINT identity keys, native ENUM types, JSONB,
 timestamptz). Also runs on SQLite for local tests.
 
@@ -22,7 +22,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 
-from app.db import Base  # shared with the lolesports models (player, round)
+from app.db import Base  # shares MetaData with the lolesports models in ../db.py
 
 
 # Reusable column helpers

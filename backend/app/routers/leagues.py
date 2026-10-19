@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.config import settings
 from app.deps import DB, CurrentUser, get_league_or_404, get_my_team, require_commissioner
-from app.lolesports import Player, player_position
+from app.lolesports import Player, player_position, team_names
 from app.models import Draft, League, LeagueStatus, Team, TeamPlayer
 from app.schemas import (
     JoinLeague, LeagueCreate, LeagueDetail, LeagueOut, LeagueUpdate, PlayerOut,
@@ -150,9 +150,10 @@ def team_roster(league_id: int, team_id: int, db: DB, user: CurrentUser):
         select(TeamPlayer, Player).join(Player, Player.id == TeamPlayer.player_id)
         .where(TeamPlayer.team_id == team_id).order_by(TeamPlayer.acquired_at)
     ).all()
+    names = team_names(db, [p for _, p in rows])
     return RosterOut(
         team=TeamOut.model_validate(team),
-        players=[RosterEntry(player=PlayerOut.model_validate(p), acquired_via=tp.acquired_via.value,
+        players=[RosterEntry(player=PlayerOut.from_player(p, names), acquired_via=tp.acquired_via.value,
                              acquired_at=tp.acquired_at) for tp, p in rows],
     )
 
@@ -164,8 +165,10 @@ def league_players(league_id: int, db: DB, user: CurrentUser,
     a team in this league; `position` filters by slot key (top, mid, ...)."""
     get_my_team(db, league_id, user)
     if available:
-        return available_players(db, league_id, position)
-    players = db.scalars(select(Player).order_by(Player.id)).all()
-    if position:
-        players = [p for p in players if player_position(p) == position]
-    return players
+        players = available_players(db, league_id, position)
+    else:
+        players = db.scalars(select(Player).order_by(Player.id)).all()
+        if position:
+            players = [p for p in players if player_position(p) == position]
+    names = team_names(db, players)
+    return [PlayerOut.from_player(p, names) for p in players]

@@ -105,11 +105,20 @@ class LeagueDetail(LeagueOut):
     my_team_id: int
 
 
-class PlayerOut(ORM):
+class PlayerOut(BaseModel):
     id: int
-    name: str
-    role: Optional[str] = None
-    team_code: Optional[str] = None
+    name: str                          # in-game tag, e.g. "Faker"
+    real_name: Optional[str] = None
+    role: Optional[str] = None         # roster slot key: top / jungle / mid / adc / support / coach
+    team_code: Optional[str] = None    # pro team name
+    region: Optional[str] = None
+
+    @classmethod
+    def from_player(cls, p, team_names: dict[int, str]) -> "PlayerOut":
+        return cls(id=p.id, name=p.tag, real_name=p.name,
+                   role=p.position.value if p.position else None,
+                   team_code=team_names.get(p.team),
+                   region=p.region.value if p.region else None)
 
 
 class RosterEntry(BaseModel):

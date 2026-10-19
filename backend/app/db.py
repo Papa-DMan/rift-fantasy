@@ -4,11 +4,16 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
+import db as esports_db
 from app.config import settings
 
 
 class Base(DeclarativeBase):
-    pass
+    # Same MetaData as the lolesports models in ../db.py (player, round, team,
+    # game, ...), so the fantasy tables' foreign keys resolve and create_all
+    # builds everything. A separate registry keeps the two `Team` classes
+    # (pro team vs fantasy team) from clashing by name.
+    metadata = esports_db.Base.metadata
 
 
 def make_engine(url: str, **kwargs) -> Engine:
