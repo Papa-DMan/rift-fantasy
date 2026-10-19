@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: qwerpoiu
+      POSTGRES_DB: lolesports_fantasy
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    shm_size: 128mb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d lolesports_fantasy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  pgadmin:
+    image: dpage/pgadmin4
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: "admin@papadman.app"
+      PGADMIN_DEFAULT_PASSWORD: qwerpoiu
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
+    volumes:
+      - pgadmindata:/var/lib/pgadmin
+  # backend:
+  #   build:
+  #     dockerfile: Dockerfile
+  #   image: lolesports_fantasy_backend
+    
+  
+volumes:
+  pgdata:
+  pgadmindata:
