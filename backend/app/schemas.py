@@ -4,6 +4,7 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from models import DraftStatus, DraftType, LeagueStatus, TradeStatus
+from services.scoring import DEFAULT_SCORING_RULES, validate_scoring_rules
 
 ROSTER_SLOT_KEYS = {"top", "jungle", "mid", "adc", "support", "coach", "bench"}
 DEFAULT_ROSTER_SLOTS = {"top": 1, "jungle": 1, "mid": 1, "adc": 1, "support": 1,
@@ -66,11 +67,19 @@ class LeagueUpdate(BaseModel):
     max_teams: Optional[int] = Field(None, ge=2, le=20)
     roster_slots: Optional[dict[str, int]] = None
     trade_deadline: Optional[datetime] = None
+    # Any subset of the scoring rule keys; replaces the stored rules, and
+    # missing keys fall back to the defaults.
+    scoring_rules: Optional[dict[str, float]] = None
 
     @field_validator("roster_slots")
     @classmethod
     def _check_slots(cls, v: Optional[dict[str, int]]) -> Optional[dict[str, int]]:
         return v if v is None else validate_roster_slots(v)
+
+    @field_validator("scoring_rules")
+    @classmethod
+    def _check_rules(cls, v: Optional[dict[str, float]]) -> Optional[dict[str, float]]:
+        return v if v is None else validate_scoring_rules(v)
 
 
 class JoinLeague(BaseModel):
@@ -93,9 +102,15 @@ class LeagueOut(ORM):
     max_teams: int
     status: LeagueStatus
     roster_slots: dict[str, int]
+    scoring_rules: dict[str, float]
     trade_deadline: Optional[datetime]
     created_by_id: int
     created_at: Optional[datetime] = None
+
+    @field_validator("scoring_rules", mode="before")
+    @classmethod
+    def _effective_rules(cls, v: Optional[dict]) -> dict:
+        return {**DEFAULT_SCORING_RULES, **(v or {})}
 
 
 class LeagueDetail(LeagueOut):
@@ -193,3 +208,51 @@ class TradeOut(ORM):
     responded_at: Optional[datetime]
     completed_at: Optional[datetime]
     items: list[TradeItemOut]
+
+
+# ---------------------------------------------------------------- scoring
+
+class RoundOut(BaseModel):
+    id: int
+    name: str
+    stage: str
+    lock_at: datetime
+    ends_at: datetime
+    # upcoming | live | final | before_draft (locked before this league drafted; not scored)
+    status: str
+
+
+class StandingRow(BaseModel):
+    team_id: int
+    name: str
+    total: float
+    rounds: dict[int, float]          # round id -> points, counted rounds only
+
+
+class StandingsOut(BaseModel):
+    rounds: list[RoundOut]
+    teams: list[StandingRow]          # best first
+    scoring_rules: dict[str, float]
+
+
+class GamePointsOut(BaseModel):
+    game_id: int
+    points: float
+    breakdown: dict[str, float]       # rule -> points, e.g. {"kills": 9, "win": 3}
+
+
+class LineupSlotOut(BaseModel):
+    slot: str
+    slot_index: int
+    player: PlayerOut
+    points: float
+    counts: bool                      # false for bench
+    games: list[GamePointsOut]
+
+
+class TeamRoundOut(BaseModel):
+    team: TeamOut
+    round: RoundOut
+    total: float
+    # Before the round locks this is a preview built from the current roster.
+    lineup: list[LineupSlotOut]

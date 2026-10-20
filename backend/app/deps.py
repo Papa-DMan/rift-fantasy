@@ -1,3 +1,4 @@
+import os
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
@@ -11,16 +12,25 @@ from security import decode_access_token
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 dbc = DBConfig(
-    database="lolesports_fantasy",
-    host="db",
-    port=5432,
-    password="qwerpoiu",
-    user="postgres"
-
+    database=os.getenv("POSTGRES_DB", "lolesports_fantasy"),
+    host=os.getenv("POSTGRES_HOST", "db"),
+    port=int(os.getenv("POSTGRES_PORT", "5432")),
+    password=os.getenv("POSTGRES_PASSWORD", "qwerpoiu"),
+    user=os.getenv("POSTGRES_USER", "postgres"),
 )
-dbm = DBManager(conf=dbc)
+# Connected on first request, so importing the app (tests, scripts) doesn't
+# need the database to be up.
+dbm: DBManager | None = None
 
-DB = Annotated[Session, Depends(dbm.get_async_session)]
+
+def get_db():
+    global dbm
+    if dbm is None:
+        dbm = DBManager(conf=dbc)
+    yield from dbm.get_async_session()
+
+
+DB = Annotated[Session, Depends(get_db)]
 
 
 def get_current_user(db: DB, token: Annotated[str, Depends(oauth2_scheme)]) -> User:

@@ -3,6 +3,8 @@ import { api, parseDate } from '../api'
 import { useLoad } from '../hooks'
 import { useLeague } from '../league'
 import { RosterSlots } from '../components/RosterSlots'
+import { RoundPoints } from '../components/RoundPoints'
+import { formatPoints } from '../format'
 import { Empty, ErrorNote, Spinner } from '../components/ui'
 
 export default function RosterPage() {
@@ -10,6 +12,9 @@ export default function RosterPage() {
   const teamId = Number(useParams().teamId ?? me.id)
   const { data, error, loading, reload } = useLoad(() => api.roster(league.id, teamId), [league.id, teamId])
   const via = new Map(data?.players.map((e) => [e.player.id, e]) ?? [])
+  const drafted = league.status === 'active' || league.status === 'finished'
+  const standings = useLoad(() => drafted ? api.standings(league.id) : Promise.resolve(null), [league.id, drafted])
+  const season = standings.data?.teams.find((t) => t.team_id === teamId)
 
   return (
     <div className="stack">
@@ -27,7 +32,10 @@ export default function RosterPage() {
             <span className="avatar avatar-lg">{data.team.name.slice(0, 1).toUpperCase()}</span>
             <div>
               <h2>{data.team.name}</h2>
-              <div className="muted small">{data.players.length} of {Object.values(league.roster_slots).reduce((a, b) => a + b, 0)} players</div>
+              <div className="muted small">
+                {data.players.length} of {Object.values(league.roster_slots).reduce((a, b) => a + b, 0)} players
+                {season && <> · {formatPoints(season.total)} pts this season</>}
+              </div>
             </div>
           </div>
           {data.players.length === 0 && league.status === 'setup'
@@ -38,6 +46,10 @@ export default function RosterPage() {
                 const d = parseDate(e.acquired_at)
                 return `via trade${d ? ` ${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : ''}`
               }} />}
+          {standings.data && <>
+            <h2 className="section-title">Points by round</h2>
+            <RoundPoints leagueId={league.id} teamId={teamId} rounds={standings.data.rounds} />
+          </>}
           {teamId !== me.id && league.status === 'active' && (
             <Link to={`/leagues/${league.id}/trades?with=${teamId}`} className="btn btn-secondary btn-block">Propose a trade</Link>
           )}

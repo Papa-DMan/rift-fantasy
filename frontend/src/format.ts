@@ -15,3 +15,20 @@ export function formatCountdown(ms: number) {
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60
   return h ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}` : `${m}:${String(sec).padStart(2, '0')}`
 }
+
+/** Labels for scoring rule keys (app/services/scoring.py), in display order. */
+export const SCORING_LABELS: Record<string, string> = {
+  kills: 'Kill', deaths: 'Death', assists: 'Assist', cs: 'CS', vision_score: 'Vision score',
+  first_blood: 'First blood', win: 'Game win', ten_kill_assists: '10+ kills & assists',
+  coach_win: 'Coach: game win', damage: 'Damage', gold: 'Gold', cs_at_15: 'CS at 15',
+  gold_at_15: 'Gold at 15', objective_steal: 'Objective steal',
+}
+
+export function formatPoints(n: number) {
+  return String(Math.round(n * 100) / 100)
+}
+
+export function ordinal(n: number) {
+  const s = ['th', 'st', 'nd', 'rd'], v = n % 100
+  return n + (s[(v - 20) % 10] || s[v] || s[0])
+}

@@ -16,7 +16,8 @@ export interface User { id: number; email: string; display_name: string; created
 export interface Team { id: number; name: string; user_id: number; is_commissioner: boolean; joined_at?: string | null }
 export interface League {
   id: number; name: string; tournament_id: string; max_teams: number; status: LeagueStatus
-  roster_slots: Record<string, number>; trade_deadline: string | null; created_by_id: number; created_at?: string | null
+  roster_slots: Record<string, number>; scoring_rules: Record<string, number>
+  trade_deadline: string | null; created_by_id: number; created_at?: string | null
 }
 export interface LeagueDetail extends League { teams: Team[]; invite_code: string | null; my_team_id: number }
 export interface Player { id: number; name: string; role: string | null; team_code: string | null }
@@ -37,6 +38,14 @@ export interface Trade {
   message: string | null; created_at?: string | null; responded_at: string | null; completed_at: string | null
   items: TradeItem[]
 }
+
+export type RoundStatus = 'upcoming' | 'live' | 'final' | 'before_draft'
+export interface Round { id: number; name: string; stage: string; lock_at: string; ends_at: string; status: RoundStatus }
+export interface StandingRow { team_id: number; name: string; total: number; rounds: Record<string, number> }
+export interface Standings { rounds: Round[]; teams: StandingRow[]; scoring_rules: Record<string, number> }
+export interface GamePoints { game_id: number; points: number; breakdown: Record<string, number> }
+export interface LineupSlot { slot: Slot; slot_index: number; player: Player; points: number; counts: boolean; games: GamePoints[] }
+export interface TeamRound { team: Team; round: Round; total: number; lineup: LineupSlot[] }
 
 export class ApiError extends Error {
   status: number
@@ -104,7 +113,7 @@ export const api = {
   league: (id: number) => get<LeagueDetail>(`/leagues/${id}`),
   createLeague: (b: { name: string; team_name: string; max_teams?: number; roster_slots?: Record<string, number>; trade_deadline?: string | null }) =>
     post<LeagueDetail>('/leagues', b),
-  updateLeague: (id: number, b: Partial<Pick<League, 'name' | 'max_teams' | 'roster_slots' | 'trade_deadline'>>) =>
+  updateLeague: (id: number, b: Partial<Pick<League, 'name' | 'max_teams' | 'roster_slots' | 'scoring_rules' | 'trade_deadline'>>) =>
     patch<LeagueDetail>(`/leagues/${id}`, b),
   joinLeague: (invite_code: string, team_name: string) => post<LeagueDetail>('/leagues/join', { invite_code, team_name }),
   rotateInvite: (id: number) => post<LeagueDetail>(`/leagues/${id}/invite-code`),
@@ -121,6 +130,10 @@ export const api = {
     patch<Draft>(`/leagues/${leagueId}/draft`, b),
   startDraft: (leagueId: number, order?: number[]) => post<Draft>(`/leagues/${leagueId}/draft/start`, order ? { order } : undefined),
   pick: (leagueId: number, player_id: number) => post<Draft>(`/leagues/${leagueId}/draft/pick`, { player_id }),
+
+  standings: (leagueId: number) => get<Standings>(`/leagues/${leagueId}/standings`),
+  teamRound: (leagueId: number, teamId: number, roundId: number) =>
+    get<TeamRound>(`/leagues/${leagueId}/teams/${teamId}/rounds/${roundId}`),
 
   trades: (leagueId: number, opts: { status?: TradeStatus; mine?: boolean } = {}) => {
     const q = new URLSearchParams()
