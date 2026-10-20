@@ -35,6 +35,18 @@ services:
       dockerfile: Dockerfile
       context: backend
     image: lolesports_fantasy_backend
+  scraper:
+    # Pulls schedule, games and player stats from lolesports into the db, then
+    # refreshes fantasy points: every minute while a match is live, every 15
+    # minutes otherwise. Same image as the backend.
+    depends_on:
+      - db
+    build:
+      dockerfile: Dockerfile
+      context: backend
+    image: lolesports_fantasy_backend
+    command: ["python", "scraper.py"]
+    restart: unless-stopped
   frontend:
     depends_on:
       - backend
