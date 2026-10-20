@@ -4,7 +4,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // In dev, /api is proxied to the FastAPI backend so the browser sees one origin
 // (the backend has no CORS middleware). Override the target with API_PROXY_TARGET.
-const apiTarget = process.env.API_PROXY_TARGET ?? 'http://localhost:8000'
+const apiTarget = process.env.API_PROXY_TARGET ?? '/'
 
 export default defineConfig({
   plugins: [
@@ -40,13 +40,17 @@ export default defineConfig({
   server: {
     host: true,
     proxy: {
-      '/api': { target: apiTarget, changeOrigin: true, rewrite: (p) => p.replace(/^\/api/, '') },
+      '/api': { target: apiTarget, changeOrigin: true },
     },
   },
   preview: {
     host: true,
     proxy: {
-      '/api': { target: apiTarget, changeOrigin: true, rewrite: (p) => p.replace(/^\/api/, '') },
+      '/api': { target: apiTarget, changeOrigin: true },
     },
   },
+  build: {
+    outDir: 'build',
+    emptyOutDir: true
+  }
 })

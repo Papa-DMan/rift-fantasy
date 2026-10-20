@@ -11,8 +11,8 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.lolesports import Player, player_position
-from app.models import League, TeamPlayer
+from lolesports import Player, player_position
+from models import League, FantasyTeamPlayer as TeamPlayer
 
 
 def utcnow() -> datetime:

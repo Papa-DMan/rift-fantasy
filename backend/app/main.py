@@ -1,9 +1,8 @@
 from fastapi import FastAPI
 
-from app import models  # noqa: F401  (register the fantasy tables on Base)
-from app.routers import auth, draft, leagues, trades
+from routers import auth, draft, leagues, trades
 
-app = FastAPI(title="LoL Fantasy API", version="0.1.0")
+app = FastAPI(title="LoL Fantasy API", version="0.1.0", root_path="/api")
 
 app.include_router(auth.router)
 app.include_router(leagues.router)

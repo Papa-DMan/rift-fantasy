@@ -13,11 +13,11 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.lolesports import Player, player_position
-from app.models import (
-    AcquisitionType, League, LeagueStatus, Team, TeamPlayer, Trade, TradeItem, TradeStatus,
+from lolesports import Player, player_position
+from models import (
+    AcquisitionType, League, LeagueStatus, FantasyTeam as Team, FantasyTeamPlayer as TeamPlayer, Trade, TradeItem, TradeStatus,
 )
-from app.services.roster import as_utc, roster_fits, utcnow
+from services.roster import as_utc, roster_fits, utcnow
 
 OPEN_STATUSES = (TradeStatus.PROPOSED,)
 

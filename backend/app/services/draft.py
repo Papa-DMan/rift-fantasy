@@ -16,12 +16,12 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.lolesports import Player, player_position
-from app.models import (
+from lolesports import Player, player_position
+from models import (
     AcquisitionType, Draft, DraftPick, DraftStatus, DraftType, League,
-    LeagueStatus, Team, TeamPlayer,
+    LeagueStatus, FantasyTeam as Team, FantasyTeamPlayer as TeamPlayer,
 )
-from app.services.roster import as_utc, roster_fits, roster_size, team_positions, utcnow
+from services.roster import as_utc, roster_fits, roster_size, team_positions, utcnow
 
 
 def lock_draft(db: Session, league_id: int) -> Draft:

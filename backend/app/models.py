@@ -22,7 +22,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 
-from app.db import Base  # shares MetaData with the lolesports models in ../db.py
+from db import Base  # shares MetaData with the lolesports models in ../db.py
 
 
 # Reusable column helpers
@@ -100,7 +100,7 @@ class User(Base):
     pw_hash: Mapped[Optional[str]] = mapped_column(String(255))
     created_at: Mapped[datetime] = created_at()
 
-    teams: Mapped[list[Team]] = relationship(back_populates="user")
+    teams: Mapped[list[FantasyTeam]] = relationship(back_populates="user")
 
 
 # ---------------------------------------------------------------- leagues
@@ -129,11 +129,11 @@ class League(Base):
     created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = created_at()
 
-    teams: Mapped[list[Team]] = relationship(back_populates="league")
+    teams: Mapped[list[FantasyTeam]] = relationship(back_populates="league")
     draft: Mapped[Optional[Draft]] = relationship(back_populates="league")
 
 
-class Team(Base):
+class FantasyTeam(Base):
     """A user's membership in a league *is* their fantasy team (was league_membership)."""
     __tablename__ = "teams"
     __table_args__ = (
@@ -150,10 +150,10 @@ class Team(Base):
 
     league: Mapped[League] = relationship(back_populates="teams")
     user: Mapped[User] = relationship(back_populates="teams")
-    players: Mapped[list[TeamPlayer]] = relationship(back_populates="team")
+    players: Mapped[list[FantasyTeamPlayer]] = relationship(back_populates="team")
 
 
-class TeamPlayer(Base):
+class FantasyTeamPlayer(Base):
     """Ownership: which team currently holds which pro player in a league.
 
     The (league_id, player_id) unique constraint is what stops two friends
@@ -170,7 +170,7 @@ class TeamPlayer(Base):
     acquired_via: Mapped[AcquisitionType] = mapped_column(Enum(AcquisitionType))
     acquired_at: Mapped[datetime] = created_at()
 
-    team: Mapped[Team] = relationship(back_populates="players")
+    team: Mapped[FantasyTeam] = relationship(back_populates="players")
 
 
 # ---------------------------------------------------------------- lineups

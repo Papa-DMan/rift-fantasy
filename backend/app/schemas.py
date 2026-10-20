@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
-from app.models import DraftStatus, DraftType, LeagueStatus, TradeStatus
+from models import DraftStatus, DraftType, LeagueStatus, TradeStatus
 
 ROSTER_SLOT_KEYS = {"top", "jungle", "mid", "adc", "support", "coach", "bench"}
 DEFAULT_ROSTER_SLOTS = {"top": 1, "jungle": 1, "mid": 1, "adc": 1, "support": 1,

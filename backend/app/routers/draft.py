@@ -3,11 +3,11 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
-from app.deps import DB, CurrentUser, get_league_or_404, get_my_team, require_commissioner
-from app.models import Draft, DraftStatus
-from app.schemas import DraftOut, DraftPickOut, DraftSettings, MakePick
-from app.services import draft as svc
-from app.services.roster import roster_size
+from deps import DB, CurrentUser, get_league_or_404, get_my_team, require_commissioner
+from models import Draft, DraftStatus
+from schemas import DraftOut, DraftPickOut, DraftSettings, MakePick
+from services import draft as svc
+from services.roster import roster_size
 
 router = APIRouter(prefix="/leagues/{league_id}/draft", tags=["draft"])
 

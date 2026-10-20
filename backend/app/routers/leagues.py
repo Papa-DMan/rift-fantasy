@@ -5,15 +5,15 @@ from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
-from app.config import settings
-from app.deps import DB, CurrentUser, get_league_or_404, get_my_team, require_commissioner
-from app.lolesports import Player, player_position, team_names
-from app.models import Draft, League, LeagueStatus, Team, TeamPlayer
-from app.schemas import (
+from config import settings
+from deps import DB, CurrentUser, get_league_or_404, get_my_team, require_commissioner
+from lolesports import Player, player_position, team_names
+from models import Draft, League, LeagueStatus, FantasyTeam as Team, FantasyTeamPlayer as TeamPlayer
+from schemas import (
     JoinLeague, LeagueCreate, LeagueDetail, LeagueOut, LeagueUpdate, PlayerOut,
     RosterEntry, RosterOut, TeamOut,
 )
-from app.services.draft import available_players
+from services.draft import available_players
 
 router = APIRouter(prefix="/leagues", tags=["leagues"])
 

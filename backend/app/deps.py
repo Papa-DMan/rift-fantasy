@@ -5,13 +5,22 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db import get_db
-from app.models import League, Team, User
-from app.security import decode_access_token
+from db import DBManager, DBConfig
+from models import League, FantasyTeam as Team, User
+from security import decode_access_token
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+dbc = DBConfig(
+    database="lolesports_fantasy",
+    host="db",
+    port=5432,
+    password="qwerpoiu",
+    user="postgres"
 
-DB = Annotated[Session, Depends(get_db)]
+)
+dbm = DBManager(conf=dbc)
+
+DB = Annotated[Session, Depends(dbm.get_async_session)]
 
 
 def get_current_user(db: DB, token: Annotated[str, Depends(oauth2_scheme)]) -> User:

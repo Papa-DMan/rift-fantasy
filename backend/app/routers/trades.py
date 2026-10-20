@@ -3,10 +3,10 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import or_, select
 
-from app.deps import DB, CurrentUser, get_league_or_404, get_my_team
-from app.models import Trade, TradeStatus
-from app.schemas import TradeCreate, TradeOut
-from app.services import trades as svc
+from deps import DB, CurrentUser, get_league_or_404, get_my_team
+from models import Trade, TradeStatus
+from schemas import TradeCreate, TradeOut
+from services import trades as svc
 
 router = APIRouter(prefix="/leagues/{league_id}/trades", tags=["trades"])
 

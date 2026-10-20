@@ -5,10 +5,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.db import Base, get_db, make_engine
-from app.lolesports import Player, PlayerRole, Team
-from db import Region
-from app.main import app
+from backend.app.db import Base, get_db, make_engine
+from lolesports import Player, PlayerRole, Team
+from backend.app.db import Region
+from main import app
 
 ROLES = list(PlayerRole)  # top, jungle, mid, adc, support, coach
 

@@ -10,7 +10,7 @@ tables are left alone.
 import sys
 
 from app import models  # noqa: F401  (register the fantasy tables)
-from app.db import Base, SessionLocal, engine
+from db import Base, SessionLocal, engine
 
 if __name__ == "__main__":
     Base.metadata.create_all(engine)

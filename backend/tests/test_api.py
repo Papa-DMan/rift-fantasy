@@ -1,7 +1,7 @@
 from datetime import timedelta
 
-from app.models import DraftPick
-from app.services.roster import roster_fits, utcnow
+from models import DraftPick
+from services.roster import roster_fits, utcnow
 from tests.conftest import signup
 
 SMALL_ROSTER = {"top": 1, "mid": 1, "bench": 1}  # 3 rounds keeps tests short
@@ -193,7 +193,7 @@ def test_autopick_when_clock_runs_out(client, session_factory):
 
     # Pretend the draft started 75s ago: the first two picks (30s each) have expired.
     with session_factory() as db:
-        from app.models import Draft
+        from models import Draft
         d = db.query(Draft).filter_by(league_id=lid).one()
         d.started_at = utcnow() - timedelta(seconds=75)
         db.commit()
