@@ -14,6 +14,7 @@ from schemas import (
     RosterEntry, RosterOut, TeamOut,
 )
 from services.draft import available_players
+from services.scoring import DEFAULT_SCORING_RULES
 
 router = APIRouter(prefix="/leagues", tags=["leagues"])
 
@@ -47,7 +48,7 @@ def create_league(body: LeagueCreate, db: DB, user: CurrentUser):
         invite_code=new_invite_code(db),
         max_teams=body.max_teams,
         roster_slots=body.roster_slots,
-        scoring_rules={},  # scoring is TBD
+        scoring_rules=dict(DEFAULT_SCORING_RULES),
         trade_deadline=body.trade_deadline,
         created_by_id=user.id,
         status=LeagueStatus.SETUP,

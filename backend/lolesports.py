@@ -83,8 +83,10 @@ def getSchedule(leagueId : list[int] | None = None, pageToken : str | None = Non
                 more_pages = False
         except requests.exceptions.HTTPError as err:
             print(f"HTTP error occurred: {err}")
+            break  # the page token never advances on an error, so retrying would loop forever
         except requests.exceptions.RequestException as err:
             print(f"An error occurred: {err}")
+            break
     return events
 
 def getLeagues():

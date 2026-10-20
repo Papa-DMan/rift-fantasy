@@ -5,9 +5,12 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from backend.app.db import Base, get_db, make_engine
+from sqlalchemy import create_engine
+
+import models  # noqa: F401  (register the fantasy tables)
+from db import Base, Region
+from deps import get_db
 from lolesports import Player, PlayerRole, Team
-from backend.app.db import Region
 from main import app
 
 ROLES = list(PlayerRole)  # top, jungle, mid, adc, support, coach
@@ -18,7 +21,9 @@ def session_factory():
     # In-memory SQLite by default; set TEST_DATABASE_URL to run against a
     # throwaway Postgres database (its tables are dropped and recreated).
     url = os.getenv("TEST_DATABASE_URL")
-    engine = make_engine(url) if url else make_engine("sqlite://", poolclass=StaticPool)
+    engine = (create_engine(url) if url else
+              create_engine("sqlite://", poolclass=StaticPool,
+                            connect_args={"check_same_thread": False}))
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     factory = sessionmaker(bind=engine, expire_on_commit=False)
