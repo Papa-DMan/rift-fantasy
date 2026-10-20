@@ -1,0 +1,16 @@
+fastapi>=0.115
+uvicorn[standard]>=0.30
+sqlalchemy>=2.0
+pydantic[email]>=2.7
+pyjwt>=2.8
+pwdlib[argon2]>=0.2
+python-multipart>=0.0.9   # OAuth2 login form
+psycopg[binary]>=3.1      # Postgres driver (DATABASE_URL=postgresql+psycopg://...)
+
+# tests
+pytest>=8
+httpx>=0.27
+
+# lolesports scraping and seeding (db.py, lolesports.py)
+requests>=2.31
+tzdata                    # zoneinfo data for the Worlds schedule on Windows

@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 from pydantic import BaseModel, Field
 from sqlalchemy import  CheckConstraint, Index, create_engine, func, text
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.types import JSON
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker, scoped_session, Session
 
 class DBConfig(BaseModel):
@@ -19,19 +20,20 @@ class DBConfig(BaseModel):
 class DBManager:
     def __init__(self, conf : DBConfig):
         self.config = conf
-        self.db_url = f"postgresql://{self.config.user}:{self.config.password}@{self.config.host}:{self.config.port}/{self.config.database}"
+        self.db_url = f"postgresql+psycopg://{self.config.user}:{self.config.password}@{self.config.host}:{self.config.port}/{self.config.database}"
 
-        self.engine = None
-        self._session = None
+        self.engine = create_engine(self.db_url, pool_pre_ping=True)
+        self._session = scoped_session(sessionmaker(bind=self.engine))
+        self._sessionfactory = sessionmaker(bind=self.engine, expire_on_commit=False)
+        self.create_all()
 
     def get_session(self) -> Session:
-        if self.engine is None:
-            self.engine = create_engine(self.db_url)
-        if self._session is None:
-            self._session = scoped_session(sessionmaker(bind=self.engine))
-        
         return self._session()
-    
+        
+    def get_async_session(self):
+        with self._sessionfactory() as session:
+            yield session
+
     def disconnect(self):
         if self._session is not None:
             self._session.remove()
@@ -86,48 +88,9 @@ class SeriesStage(enum.Enum):
     SWISS = "swiss"
     KNOCKOUT = "knockout"
 
-class Slot(enum.Enum):
-    TOP = "top"
-    JUNGLE = "jungle"
-    MID = "mid"
-    ADC = "adc"
-    SUPPORT = "support"
-    COACH = "coach"
-    BENCH = "bench"
- 
- 
-class LeagueStatus(enum.Enum):
-    SETUP = "setup"
-    DRAFTING = "drafting"
-    ACTIVE = "active"
-    FINISHED = "finished"
- 
- 
-class DraftType(enum.Enum):
-    SNAKE = "snake"
-    LINEAR = "linear"
- 
- 
-class DraftStatus(enum.Enum):
-    SCHEDULED = "scheduled"
-    IN_PROGRESS = "in_progress"
-    COMPLETE = "complete"
- 
- 
-class TradeStatus(enum.Enum):
-    PROPOSED = "proposed"
-    ACCEPTED = "accepted"
-    REJECTED = "rejected"
-    CANCELLED = "cancelled"
-    VETOED = "vetoed"
-    COMPLETED = "completed"
- 
- 
-class AcquisitionType(enum.Enum):
-    DRAFT = "draft"
-    TRADE = "trade"
-    FREE_AGENT = "free_agent"
- 
+
+# JSONB on Postgres, plain JSON elsewhere (SQLite for tests).
+JSONType = JSON().with_variant(JSONB(), "postgresql")
 
 def pk() -> Mapped[int]:
     return mapped_column(BigInteger, primary_key=True)
@@ -198,7 +161,7 @@ class PlayerGameScore(Base):
     game_id : Mapped[int] = mapped_column(ForeignKey("game.id"))
     scoring_version : Mapped[int] = mapped_column(Integer)
     points : Mapped[float] = mapped_column(Numeric)
-    breakdown : Mapped[dict] = mapped_column(JSONB)
+    breakdown : Mapped[dict] = mapped_column(JSONType)
 
 class Feed(Base):
     __tablename__ = "feed"
@@ -209,7 +172,7 @@ class Feed(Base):
     game_id : Mapped[int] = mapped_column(ForeignKey("game.id"))
     source : Mapped[FeedSource] = mapped_column(Enum(FeedSource))
     frame_ts : Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    data : Mapped[dict] = mapped_column(JSONB)
+    data : Mapped[dict] = mapped_column(JSONType)
 
 
 class Round(Base):
@@ -224,149 +187,11 @@ class Round(Base):
 
 
 
-class User(Base):
-    __tablename__ = "users"
-    id : Mapped[int] = pk()
-    email : Mapped[str] = mapped_column(String(254), unique=True)
-    display_name : Mapped[str] = mapped_column(String(128))
-    pw_hash : Mapped[str | None] = mapped_column(String(255))
-    created_at : Mapped[datetime] = created_at()
-    teams : Mapped[list[Team]] = relationship(back_populates="user")
+# Fantasy-side tables (users, leagues, teams, rosters, lineups, drafts, trades)
+# live in app/models.py. They share this Base's MetaData, so their foreign
+# keys to player.id and round.id resolve against the tables above.
 
 
-
-class League(Base):
-    __tablename__ = "leagues"
-    id : Mapped[int] = pk()
-    name : Mapped[str] = mapped_column(String(256))
-    tournament_id : Mapped[str] = mapped_column(String(64))
-    invite_code : Mapped[str] = mapped_column(String(16))
-    max_teams : Mapped[int] = mapped_column(Integer, default=8)
-    status : Mapped[LeagueStatus] = mapped_column(Enum(LeagueStatus), default=LeagueStatus.SETUP)
-    scoring_rules : Mapped[dict] = mapped_column(JSONB, default={})
-    roster_slots : Mapped[dict] = mapped_column(JSONB, default={})
-    trade_deadline : Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    created_by_id : Mapped[int] = mapped_column(ForeignKey("users.id"))
-    created_at: Mapped[datetime] = created_at()
-    
-    teams: Mapped[list[Team]] = relationship(back_populates="league")
-    draft: Mapped[Draft | None] = relationship(back_populates="league")
-
-
-class Team(Base):
-    __tablename__ = "teams"
-    __table_args__ = (
-        UniqueConstraint("league_id", "user_id"),
-        UniqueConstraint("league_id", "name"),
-    )
- 
-    id: Mapped[int] = pk()
-    league_id: Mapped[int] = mapped_column(ForeignKey("leagues.id", ondelete="CASCADE"))
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    name: Mapped[str] = mapped_column(String(64))
-    is_commissioner: Mapped[bool] = mapped_column(default=False)
-    joined_at: Mapped[datetime] = created_at()
- 
-    league: Mapped[League] = relationship(back_populates="teams")
-    user: Mapped[User] = relationship(back_populates="teams")
-    players: Mapped[list[TeamPlayer]] = relationship(back_populates="team")
-
-class TeamPlayer(Base):
-    __tablename__ = "team_players"
-    __table_args__ = (UniqueConstraint("league_id", "player_id"),)
- 
-    id: Mapped[int] = pk()
-    league_id: Mapped[int] = mapped_column(ForeignKey("leagues.id", ondelete="CASCADE"))
-    team_id: Mapped[int] = mapped_column(ForeignKey("teams.id", ondelete="CASCADE"), index=True)
-    player_id: Mapped[int] = mapped_column(ForeignKey("player.id"))
-    acquired_via: Mapped[AcquisitionType] = mapped_column(Enum(AcquisitionType))
-    acquired_at: Mapped[datetime] = created_at()
- 
-    team: Mapped[Team] = relationship(back_populates="players")
-
-class LineupSlot(Base):
-    __tablename__ = "lineup_slots"
-    __table_args__ = (
-        UniqueConstraint("team_id", "round_id", "slot", "slot_index"),
-        UniqueConstraint("team_id", "round_id", "player_id"),
-    )
- 
-    id: Mapped[int] = pk()
-    team_id: Mapped[int] = mapped_column(ForeignKey("teams.id", ondelete="CASCADE"))
-    round_id: Mapped[int] = mapped_column(ForeignKey("round.id"))
-    slot: Mapped[Slot] = mapped_column(Enum(Slot))
-    slot_index: Mapped[int] = mapped_column(Integer, default=0)
-    player_id: Mapped[int] = mapped_column(ForeignKey("player.id"))
-    points: Mapped[float | None] = mapped_column()
-
-
-class Draft(Base):
-    __tablename__ = "drafts"
- 
-    id: Mapped[int] = pk()
-    league_id: Mapped[int] = mapped_column(
-        ForeignKey("leagues.id", ondelete="CASCADE"), unique=True
-    )
-    type: Mapped[DraftType] = mapped_column(Enum(DraftType), default=DraftType.SNAKE)
-    status: Mapped[DraftStatus] = mapped_column(Enum(DraftStatus), default=DraftStatus.SCHEDULED)
-    scheduled_for: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    seconds_per_pick: Mapped[int] = mapped_column(Integer, default=90)
-    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
- 
-    league: Mapped[League] = relationship(back_populates="draft")
-    picks: Mapped[list[DraftPick]] = relationship(
-        back_populates="draft", order_by="DraftPick.overall_pick"
-    )
-
-class DraftPick(Base):
-    __tablename__ = "draft_picks"
-    __table_args__ = (
-        UniqueConstraint("draft_id", "overall_pick"),
-        UniqueConstraint("draft_id", "player_id"),  # NULLs don't collide
-    )
- 
-    id: Mapped[int] = pk()
-    draft_id: Mapped[int] = mapped_column(ForeignKey("drafts.id", ondelete="CASCADE"))
-    overall_pick: Mapped[int] = mapped_column(Integer)
-    round_number: Mapped[int] = mapped_column(Integer)
-    team_id: Mapped[int] = mapped_column(ForeignKey("teams.id", ondelete="CASCADE"))
-    player_id: Mapped[int | None] = mapped_column(ForeignKey("player.id"))
-    is_autopick: Mapped[bool] = mapped_column(default=False)
-    picked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
- 
-    draft: Mapped[Draft] = relationship(back_populates="picks")
-
-class Trade(Base):
-    __tablename__ = "trades"
-    __table_args__ = (
-        CheckConstraint("proposer_team_id <> receiver_team_id"),
-        Index("ix_trades_league_status", "league_id", "status"),
-    )
- 
-    id: Mapped[int] = pk()
-    league_id: Mapped[int] = mapped_column(ForeignKey("leagues.id", ondelete="CASCADE"))
-    proposer_team_id: Mapped[int] = mapped_column(ForeignKey("teams.id", ondelete="CASCADE"))
-    receiver_team_id: Mapped[int] = mapped_column(ForeignKey("teams.id", ondelete="CASCADE"))
-    status: Mapped[TradeStatus] = mapped_column(Enum(TradeStatus), default=TradeStatus.PROPOSED)
-    message: Mapped[str | None] = mapped_column(String(500))
-    created_at: Mapped[datetime] = created_at()
-    responded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
- 
-    items: Mapped[list[TradeItem]] = relationship(back_populates="trade")
-
- 
-class TradeItem(Base):
-    __tablename__ = "trade_items"
-    __table_args__ = (UniqueConstraint("trade_id", "player_id"),)
- 
-    id: Mapped[int] = pk()
-    trade_id: Mapped[int] = mapped_column(ForeignKey("trades.id", ondelete="CASCADE"))
-    from_team_id: Mapped[int] = mapped_column(ForeignKey("teams.id", ondelete="CASCADE"))
-    player_id: Mapped[int] = mapped_column(ForeignKey("player.id"))
- 
-    trade: Mapped[Trade] = relationship(back_populates="items")
 
 
 def seed(session : Session) -> None:
